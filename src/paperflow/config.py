@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 
@@ -144,6 +145,8 @@ class AppConfig(BaseModel):
 def load_config(path: Path) -> AppConfig:
     """Load and validate configuration from a YAML file.
 
+    Automatically loads environment variables from .env file if present.
+
     Args:
         path: Path to the YAML configuration file.
 
@@ -154,6 +157,9 @@ def load_config(path: Path) -> AppConfig:
         FileNotFoundError: If config file doesn't exist.
         ValidationError: If config is invalid.
     """
+    # Load .env file if it exists (looks in current dir and parent dirs)
+    load_dotenv()
+
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
