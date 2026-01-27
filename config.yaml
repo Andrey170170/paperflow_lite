@@ -1,0 +1,142 @@
+# Paperflow Configuration - Tailored for LLM & Agentic Research
+# API keys loaded automatically from .env file
+
+zotero:
+  library_id: "16544319"
+  library_type: "user"
+  api_key: "${ZOTERO_API_KEY}"
+  inbox_collection: "Inbox"  # Change to your inbox collection name, or null for all unsorted
+
+llm:
+  provider: "openrouter"
+  api_key: "${OPENROUTER_API_KEY}"
+  model: "openai/gpt-oss-120b"
+  max_tokens: 2000
+  temperature: 0.2  # Lower for more consistent classification
+
+parser:
+  max_pages: 15  # Enough to capture abstract + intro + methods
+  cache_dir: ".cache/parsed"
+
+processing:
+  batch_size: 5
+  dry_run: false
+  add_summary_note: true
+
+# =============================================================================
+# COLLECTIONS - Fine-grained categories for LLM & Agentic research
+# =============================================================================
+collections:
+  # --- LLM Core ---
+  - name: "LLM / Fundamentals"
+    description: "Core LLM architecture, transformers, attention mechanisms, positional encodings, model internals, scaling laws"
+    keywords: ["transformer", "attention mechanism", "positional encoding", "scaling law", "GPT", "LLaMA", "architecture"]
+
+  - name: "LLM / Training"
+    description: "Pre-training, fine-tuning, RLHF, DPO, alignment techniques, instruction tuning, data curation"
+    keywords: ["pre-training", "fine-tuning", "RLHF", "DPO", "alignment", "instruction tuning", "SFT", "reward model"]
+
+  - name: "LLM / Reliability"
+    description: "Hallucination detection/mitigation, calibration, uncertainty quantification, truthfulness, factuality, self-consistency"
+    keywords: ["hallucination", "calibration", "uncertainty", "truthfulness", "factuality", "self-consistency", "confidence"]
+
+  - name: "LLM / Reasoning"
+    description: "Chain-of-thought, self-verification, logical reasoning, mathematical reasoning, step-by-step, verifiers"
+    keywords: ["chain-of-thought", "CoT", "reasoning", "self-verification", "logical", "mathematical", "step-by-step", "verifier"]
+
+  # --- Agents & Systems ---
+  - name: "Agents / General"
+    description: "LLM agents, tool use, function calling, planning, multi-step tasks, agentic workflows, ReAct"
+    keywords: ["agent", "tool use", "function calling", "planning", "ReAct", "agentic", "multi-step"]
+
+  - name: "Agents / Web & GUI"
+    description: "Web agents, browser automation, GUI agents, screen understanding, Mind2Web, WebArena, computer use"
+    keywords: ["web agent", "browser", "GUI", "screen", "Mind2Web", "WebArena", "computer use", "UI understanding"]
+
+  - name: "Agents / Code"
+    description: "Code generation agents, software engineering agents, SWE-bench, repository-level coding, debugging"
+    keywords: ["code agent", "SWE-bench", "code generation", "software engineering", "repository", "debugging", "coding"]
+
+  # --- Knowledge & Memory ---
+  - name: "RAG / Retrieval"
+    description: "Retrieval-augmented generation, knowledge bases, dense retrieval, hybrid search, citation, grounding"
+    keywords: ["RAG", "retrieval", "knowledge base", "dense retrieval", "embedding", "citation", "grounding"]
+
+  - name: "Memory / Context"
+    description: "Long-context models, memory systems, personalization, context compression, state management"
+    keywords: ["long-context", "memory", "personalization", "context window", "compression", "state"]
+
+  # --- Multimodal ---
+  - name: "Multimodal / VLM"
+    description: "Vision-language models, image understanding, visual reasoning, CLIP, multimodal learning"
+    keywords: ["VLM", "vision-language", "CLIP", "multimodal", "image understanding", "visual reasoning"]
+
+  # --- Evaluation ---
+  - name: "Evaluation / Benchmarks"
+    description: "Benchmarks, evaluation frameworks, metrics, datasets for LLM evaluation, leaderboards"
+    keywords: ["benchmark", "evaluation", "metric", "dataset", "leaderboard", "eval"]
+
+  # --- Infrastructure ---
+  - name: "ML Systems / Infra"
+    description: "Distributed training, inference optimization, data pipelines, HPC, serving, quantization"
+    keywords: ["distributed", "inference", "pipeline", "HPC", "serving", "quantization", "optimization", "throughput"]
+
+  # --- Robotics/Perception (secondary interest) ---
+  - name: "Perception / Autonomous"
+    description: "Autonomous vehicles, SLAM, localization, 3D perception, sensor fusion, robotics"
+    keywords: ["autonomous", "SLAM", "localization", "perception", "sensor fusion", "robotics", "lidar"]
+
+  # --- Catch-all ---
+  - name: "Review Later"
+    description: "Papers that don't clearly fit other categories or need manual review"
+    keywords: []
+
+# =============================================================================
+# TAGS - Cross-cutting themes that can apply to any collection
+# =============================================================================
+tags:
+  # Paper type
+  - name: "foundational"
+    description: "Seminal/influential paper that introduced key concepts or architectures (e.g., Attention is All You Need)"
+
+  - name: "empirical"
+    description: "Primarily reports experimental results, ablations, comparisons"
+
+  - name: "methods"
+    description: "Introduces a new technique, algorithm, or approach"
+
+  - name: "theoretical"
+    description: "Focuses on theoretical analysis, proofs, or formal frameworks"
+
+  - name: "survey"
+    description: "Literature review, survey, or meta-analysis covering a field"
+
+  - name: "position"
+    description: "Position paper, perspective, or opinion piece on research direction"
+
+  # Content characteristics
+  - name: "benchmark"
+    description: "Introduces or primarily uses a benchmark/dataset for evaluation"
+
+  - name: "safety"
+    description: "Addresses AI safety, alignment, harmful outputs, or jailbreaking"
+
+  - name: "efficiency"
+    description: "Focuses on computational efficiency, speed, memory optimization"
+
+  - name: "open-source"
+    description: "Code, models, or data are publicly available"
+
+  # Source indicators
+  - name: "industry"
+    description: "From industry lab (OpenAI, Anthropic, Google, Meta, etc.)"
+
+  - name: "preprint"
+    description: "Not yet peer-reviewed (arXiv only, no venue)"
+
+  # Quality signals
+  - name: "highly-cited"
+    description: "Paper appears to be highly influential based on citations or impact"
+
+  - name: "needs-pdf"
+    description: "Could not access or parse the PDF content"

@@ -7,7 +7,7 @@ venv/
 .uv/
 
 # Config with secrets
-config.yaml
+# config.yaml
 
 # Cache
 .cache/
