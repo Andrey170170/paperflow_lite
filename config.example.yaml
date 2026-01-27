@@ -1,0 +1,69 @@
+# Paperflow Configuration
+# Copy this file to config.yaml and fill in your values
+
+# Zotero settings
+zotero:
+  library_id: "YOUR_LIBRARY_ID"      # Your Zotero user/group ID
+  library_type: "user"                # "user" or "group"
+  api_key: "${ZOTERO_API_KEY}"        # Set ZOTERO_API_KEY env var
+  inbox_collection: "Inbox"           # Collection to pull from (null = all unsorted)
+
+# LLM settings
+llm:
+  provider: "openrouter"
+  api_key: "${OPENROUTER_API_KEY}"    # Set OPENROUTER_API_KEY env var
+  model: "openai/gpt-4.1-mini"        # Model to use
+  max_tokens: 2000
+  temperature: 0.3
+
+# PDF parsing
+parser:
+  max_pages: 10                       # Limit pages to reduce cost
+  cache_dir: ".cache/parsed"          # Cache parsed text
+
+# Processing
+processing:
+  batch_size: 5                       # Papers per run
+  dry_run: false                      # Preview without changes
+  add_summary_note: true              # Add summary as Zotero note
+
+# Collections (folders) - LLM uses descriptions to classify
+collections:
+  - name: "ML / Deep Learning"
+    description: "Machine learning, neural networks, deep learning architectures, training methods"
+    keywords: ["neural network", "deep learning", "transformer", "CNN", "RNN"]
+
+  - name: "LLM / Language Models"
+    description: "Large language models, NLP, text generation, prompting"
+    keywords: ["LLM", "GPT", "language model", "NLP", "transformer"]
+
+  - name: "Neuroscience / Cognitive"
+    description: "Brain science, cognitive psychology, neurobiology, perception, memory"
+    keywords: ["fMRI", "neuron", "cognitive", "brain", "hippocampus"]
+
+  - name: "Methods / Statistics"
+    description: "Research methods, statistical analysis, experimental design"
+    keywords: ["regression", "bayesian", "p-value", "sample size"]
+
+  - name: "Review Later"
+    description: "Doesn't fit other categories or unclear from abstract"
+
+# Tags - applied based on paper characteristics
+tags:
+  - name: "foundational"
+    description: "Seminal/classic paper, highly cited, establishes key concepts"
+
+  - name: "methods-focused"
+    description: "Primarily about a technique, tool, or methodology"
+
+  - name: "empirical"
+    description: "Reports original experimental/observational data"
+
+  - name: "review/meta"
+    description: "Literature review, meta-analysis, or survey paper"
+
+  - name: "cutting-edge"
+    description: "Very recent, potentially not yet peer-reviewed, bleeding edge"
+
+  - name: "needs-pdf"
+    description: "Could not access or parse the PDF"

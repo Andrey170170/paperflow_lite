@@ -1,0 +1,12 @@
+# Missing required fields
+zotero:
+  library_type: "user"
+  # library_id missing
+  # api_key missing
+
+llm:
+  provider: "openrouter"
+  # api_key missing
+  temperature: 2.0  # out of range
+
+# collections and tags missing
