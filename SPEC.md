@@ -8,24 +8,29 @@ Research papers accumulate fast — you save interesting stuff from Google News,
 
 ## Solution
 
-A lightweight CLI tool that:
-1. Fetches unsorted papers from Zotero
+A background service + CLI that:
+1. Polls Zotero for new papers in a "Raw" / inbox collection
 2. Extracts/parses PDF content
 3. Uses an LLM to generate summaries and classify papers
-4. Automatically sorts into Zotero collections (folders) and applies tags
-5. Stores structured metadata back in Zotero
+4. Assigns ONE primary collection + multiple tags for secondary classification
+5. Stores structured metadata back in Zotero as notes
+
+**Key principle**: Each paper gets ONE primary collection (the main topic), with tags for cross-cutting themes.
 
 ## User Stories
 
 ```
-As a researcher, I want to run a single command that processes my unsorted papers
-So that my Zotero library stays organized without manual effort
+As a researcher, I want a service running in the background that auto-processes new papers
+So that my Zotero library stays organized without manual intervention
 
-As a researcher, I want summaries and key points extracted from each paper
+As a researcher, I want summaries and key points added as Zotero notes
 So that I can quickly decide if a paper is worth deep reading
 
-As a researcher, I want to define my own categories and tags
-So that the sorting matches my research interests and workflow
+As a researcher, I want papers sorted into ONE primary collection with tags for themes
+So that the folder structure stays clean while still capturing cross-cutting topics
+
+As a researcher, I want CLI control to manually trigger processing or check status
+So that I have full control when needed
 ```
 
 ---
@@ -33,6 +38,12 @@ So that the sorting matches my research interests and workflow
 ## Architecture
 
 ```
+                              ┌─────────────────────────────────┐
+                              │      paperflow daemon           │
+                              │  (polls Zotero every N mins)    │
+                              └───────────────┬─────────────────┘
+                                              │
+                                              ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Zotero    │────▶│  PDF Parse  │────▶│  LLM API    │────▶│   Zotero    │
 │  (fetch)    │     │  (docling)  │     │ (OpenRouter)│     │  (update)   │
@@ -47,11 +58,19 @@ So that the sorting matches my research interests and workflow
       ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        Zotero Library                                    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐                │
-│  │ Inbox/   │  │ ML/      │  │ Neuro/   │  │ Methods/ │  ...           │
-│  │ Unsorted │  │ Deep     │  │ Cognitive│  │ Stats    │                │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘                │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────┐        │
+│  │ Raw/     │  │ LLM/         │  │ CV/          │  │ Other/   │  ...   │
+│  │ Inbox    │  │ Reliability  │  │ Perception   │  │ Misc     │        │
+│  └──────────┘  └──────────────┘  └──────────────┘  └──────────┘        │
+│                                                                         │
+│  Tags: #mechanistic-interp #agents #transformers #methods #review ...   │
 └─────────────────────────────────────────────────────────────────────────┘
+
+CLI Interface:
+  paperflow serve        # start daemon
+  paperflow process      # manual one-shot run  
+  paperflow status       # show queue, last run
+  paperflow stop         # stop daemon
 ```
 
 ---
@@ -88,10 +107,20 @@ So that the sorting matches my research interests and workflow
 
 ### 5. CLI (`src/cli.py`)
 - Commands:
-  - `paperflow process` — run the full pipeline
+  - `paperflow serve` — start background daemon (polls Zotero)
+  - `paperflow serve --interval 300` — poll every 5 minutes
+  - `paperflow stop` — stop the daemon
+  - `paperflow process` — manual one-shot run
   - `paperflow process --dry-run` — show what would happen
-  - `paperflow status` — show inbox count, last run
+  - `paperflow status` — show queue count, daemon status, last run
   - `paperflow config validate` — check config file
+
+### 6. Daemon (`src/daemon.py`)
+- Background service using asyncio
+- Polls Zotero at configurable interval (default: 5 min)
+- Graceful shutdown on SIGTERM/SIGINT
+- PID file for process management
+- Logs to file + optional stdout
 
 ---
 
