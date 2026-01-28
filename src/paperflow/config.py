@@ -83,6 +83,10 @@ class ProviderRouting(BaseModel):
         description="Allowed quantization levels (e.g., ['bf16', 'fp16', 'fp32'])",
         default=None,
     )
+    require_parameters: bool | None = Field(
+        description="Only route to providers that support all parameters (e.g., response_format)",
+        default=None,
+    )
 
 
 class LLMConfig(BaseModel):

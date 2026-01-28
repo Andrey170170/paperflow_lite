@@ -305,11 +305,12 @@ Respond in JSON:
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": self.llm_config.max_tokens,
             "temperature": self.llm_config.temperature,
+            "response_format": {"type": "json_object"},
         }
 
         # Add provider routing if configured
+        provider_config: dict[str, Any] = {}
         if self.llm_config.routing:
-            provider_config: dict[str, Any] = {}
             routing = self.llm_config.routing
 
             if routing.order:
@@ -320,9 +321,15 @@ Respond in JSON:
                 provider_config["sort"] = routing.sort
             if routing.quantizations:
                 provider_config["quantizations"] = routing.quantizations
+            if routing.require_parameters is not None:
+                provider_config["require_parameters"] = routing.require_parameters
 
-            if provider_config:
-                payload["provider"] = provider_config
+        # Always require providers to support our parameters (especially response_format)
+        if "require_parameters" not in provider_config:
+            provider_config["require_parameters"] = True
+
+        if provider_config:
+            payload["provider"] = provider_config
 
         try:
             async with httpx.AsyncClient() as client:

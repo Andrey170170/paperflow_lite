@@ -19,6 +19,7 @@ llm:
     allow_fallbacks: true              # Fall back to other providers if needed
     sort: "throughput"                 # Prioritize fastest endpoints
     quantizations: ["bf16", "fp16", "fp32"]  # No heavy quantization
+    require_parameters: true           # Only use providers supporting response_format
 
 parser:
   max_pages: 15  # Enough to capture abstract + intro + methods
