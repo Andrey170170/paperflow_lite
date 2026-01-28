@@ -147,6 +147,45 @@ class ZoteroClient:
         """
         return self._find_collection_key(name)
 
+    def create_collection(self, name: str) -> str:
+        """Create a new collection.
+
+        Args:
+            name: Name for the new collection.
+
+        Returns:
+            Key of the created collection.
+
+        Raises:
+            ZoteroError: If collection creation fails.
+        """
+        try:
+            result = self._client.create_collections([{"name": name}])
+            # Result is a dict with 'successful' key containing created items
+            if result.get("successful"):
+                new_key = list(result["successful"].values())[0]["key"]
+                # Update cache
+                if self._collections_cache is not None:
+                    self._collections_cache[name] = new_key
+                return new_key
+            raise ZoteroError(f"Failed to create collection '{name}': {result}")
+        except Exception as e:
+            raise ZoteroError(f"Failed to create collection '{name}': {e}") from e
+
+    def get_or_create_collection(self, name: str) -> str:
+        """Get collection key, creating the collection if it doesn't exist.
+
+        Args:
+            name: Collection name.
+
+        Returns:
+            Collection key.
+        """
+        key = self.get_collection_key(name)
+        if key is None:
+            key = self.create_collection(name)
+        return key
+
     def mark_as_processed(self, item_key: str) -> None:
         """Mark an item as processed by adding a tag.
 

@@ -108,7 +108,7 @@ class TestClassifier:
         }
 
         with patch.object(
-            classifier, "_call_llm", new_callable=AsyncMock
+            classifier, "_call_llm_once", new_callable=AsyncMock
         ) as mock_call:
             mock_call.return_value = json.dumps(mock_response)
             result = await classifier.summarize(sample_paper)
@@ -138,7 +138,7 @@ class TestClassifier:
         }
 
         with patch.object(
-            classifier, "_call_llm", new_callable=AsyncMock
+            classifier, "_call_llm_once", new_callable=AsyncMock
         ) as mock_call:
             mock_call.return_value = json.dumps(mock_response)
             result = await classifier.classify(summary)
@@ -176,7 +176,7 @@ class TestClassifier:
             return json.dumps(classify_response)
 
         with patch.object(
-            classifier, "_call_llm", side_effect=mock_llm_calls
+            classifier, "_call_llm_once", side_effect=mock_llm_calls
         ):
             summary, classification = await classifier.process(sample_paper)
 
@@ -189,7 +189,7 @@ class TestClassifier:
     ) -> None:
         """Test handling of malformed LLM response."""
         with patch.object(
-            classifier, "_call_llm", new_callable=AsyncMock
+            classifier, "_call_llm_once", new_callable=AsyncMock
         ) as mock_call:
             mock_call.return_value = "This is not valid JSON at all"
 
@@ -215,7 +215,7 @@ class TestClassifier:
 Hope this helps!"""
 
         with patch.object(
-            classifier, "_call_llm", new_callable=AsyncMock
+            classifier, "_call_llm_once", new_callable=AsyncMock
         ) as mock_call:
             mock_call.return_value = mock_response
             result = await classifier.summarize(sample_paper)
@@ -242,7 +242,7 @@ Hope this helps!"""
         }
 
         with patch.object(
-            classifier, "_call_llm", new_callable=AsyncMock
+            classifier, "_call_llm_once", new_callable=AsyncMock
         ) as mock_call:
             mock_call.return_value = json.dumps(mock_response)
             result = await classifier.classify(summary)
@@ -286,7 +286,7 @@ class TestLLMCall:
     """Tests for LLM API calls."""
 
     @pytest.mark.asyncio
-    async def test_call_llm_openrouter(self, classifier: Classifier) -> None:
+    async def test_call_llm_once_openrouter(self, classifier: Classifier) -> None:
         """Test OpenRouter API call."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -296,13 +296,13 @@ class TestLLMCall:
 
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
-            result = await classifier._call_llm("Test prompt")
+            result = await classifier._call_llm_once("Test prompt")
 
         assert result == '{"test": "response"}'
         mock_post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_call_llm_api_error(self, classifier: Classifier) -> None:
+    async def test_call_llm_once_api_error(self, classifier: Classifier) -> None:
         """Test handling of API errors."""
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -313,4 +313,4 @@ class TestLLMCall:
             mock_post.return_value = mock_response
 
             with pytest.raises(ClassifierError, match="LLM API call failed"):
-                await classifier._call_llm("Test prompt")
+                await classifier._call_llm_once("Test prompt")

@@ -162,11 +162,10 @@ def process(
         # Apply changes (unless dry run)
         if not cfg.processing.dry_run:
             try:
-                # Add to collections
+                # Add to collections (create if they don't exist)
                 for coll_name in classification.collections:
-                    coll_key = zotero.get_collection_key(coll_name)
-                    if coll_key:
-                        zotero.add_to_collection(item.key, coll_key)
+                    coll_key = zotero.get_or_create_collection(coll_name)
+                    zotero.add_to_collection(item.key, coll_key)
 
                 # Add tags
                 zotero.add_tags(item.key, classification.tags)

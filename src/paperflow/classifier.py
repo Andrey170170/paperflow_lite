@@ -54,11 +54,10 @@ class Classifier:
             PaperSummary with extracted information.
 
         Raises:
-            ClassifierError: If summarization fails.
+            ClassifierError: If summarization fails after retries.
         """
         prompt = self._format_summarize_prompt(paper)
-        response = await self._call_llm(prompt)
-        return self._parse_response(response, PaperSummary)
+        return await self._call_llm_with_parse(prompt, PaperSummary)
 
     async def classify(self, summary: PaperSummary) -> Classification:
         """Classify a paper based on its summary.
@@ -70,11 +69,10 @@ class Classifier:
             Classification with collections and tags.
 
         Raises:
-            ClassifierError: If classification fails.
+            ClassifierError: If classification fails after retries.
         """
         prompt = self._format_classify_prompt(summary)
-        response = await self._call_llm(prompt)
-        classification = self._parse_response(response, Classification)
+        classification = await self._call_llm_with_parse(prompt, Classification)
 
         # Validate collections exist, fall back to "Review Later" if not
         valid_collection_names = {c.name for c in self.collections}
@@ -250,8 +248,43 @@ Respond in JSON:
 }
 ```"""
 
-    async def _call_llm(self, prompt: str) -> str:
-        """Call the LLM API.
+    async def _call_llm_with_parse(
+        self,
+        prompt: str,
+        model: type[PaperSummary] | type[Classification],
+    ) -> PaperSummary | Classification:
+        """Call LLM and parse response, with retry on both API and parse failures.
+
+        Args:
+            prompt: Prompt to send.
+            model: Target Pydantic model class for parsing.
+
+        Returns:
+            Parsed model instance.
+
+        Raises:
+            ClassifierError: If all retries exhausted.
+        """
+        max_retries = self.llm_config.max_retries
+        last_error: Exception | None = None
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = await self._call_llm_once(prompt)
+                return self._parse_response(response, model)
+            except ClassifierError as e:
+                last_error = e
+                if attempt < max_retries:
+                    wait_time = 2**attempt  # Exponential backoff: 2, 4, 8...
+                    print(
+                        f"  [Retry {attempt}/{max_retries}] {e} - retrying in {wait_time}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+
+        raise ClassifierError(f"Failed after {max_retries} attempts: {last_error}")
+
+    async def _call_llm_once(self, prompt: str) -> str:
+        """Make a single LLM API call (no retry).
 
         Args:
             prompt: Prompt to send.
@@ -260,7 +293,7 @@ Respond in JSON:
             LLM response content.
 
         Raises:
-            ClassifierError: If API call fails after all retries.
+            ClassifierError: If API call fails.
         """
         headers = {
             "Authorization": f"Bearer {self.llm_config.api_key}",
@@ -291,34 +324,19 @@ Respond in JSON:
             if provider_config:
                 payload["provider"] = provider_config
 
-        max_retries = self.llm_config.max_retries
-        last_error: Exception | None = None
-
-        for attempt in range(1, max_retries + 1):
-            try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        OPENROUTER_API_URL,
-                        headers=headers,
-                        json=payload,
-                        timeout=60.0,
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    return data["choices"][0]["message"]["content"]
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries:
-                    wait_time = 2 ** attempt  # Exponential backoff: 2, 4, 8...
-                    logger.warning(
-                        f"LLM API call failed (attempt {attempt}/{max_retries}): {e}. "
-                        f"Retrying in {wait_time}s..."
-                    )
-                    await asyncio.sleep(wait_time)
-                else:
-                    logger.error(f"LLM API call failed after {max_retries} attempts: {e}")
-
-        raise ClassifierError(f"LLM API call failed after {max_retries} attempts: {last_error}")
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    OPENROUTER_API_URL,
+                    headers=headers,
+                    json=payload,
+                    timeout=60.0,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            raise ClassifierError(f"LLM API call failed: {e}") from e
 
     def _parse_response(
         self,
