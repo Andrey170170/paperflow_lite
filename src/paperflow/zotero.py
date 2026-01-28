@@ -35,6 +35,7 @@ class ZoteroClient:
         """Fetch items from the inbox collection.
 
         If no inbox collection is configured, fetches unfiled items.
+        Filters out attachments and notes (only returns top-level items).
 
         Returns:
             List of ZoteroItem objects.
@@ -53,7 +54,13 @@ class ZoteroClient:
             # Fetch all items (unfiled)
             raw_items = self._client.items()
 
-        return [self._parse_item(item) for item in raw_items]
+        # Filter out attachments and notes - we only want top-level items (papers)
+        top_level_items = [
+            item for item in raw_items
+            if item.get("data", {}).get("itemType") not in ("attachment", "note")
+        ]
+
+        return [self._parse_item(item) for item in top_level_items]
 
     def get_item_pdf(self, attachment_key: str) -> bytes | None:
         """Download PDF content for an attachment.
