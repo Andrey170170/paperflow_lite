@@ -13,6 +13,12 @@ llm:
   model: "openai/gpt-oss-120b"
   max_tokens: 2000
   temperature: 0.2  # Lower for more consistent classification
+  max_retries: 3    # Retry failed API calls up to 3 times
+  routing:
+    order: ["google-vertex", "groq"]  # Preferred providers
+    allow_fallbacks: true              # Fall back to other providers if needed
+    sort: "throughput"                 # Prioritize fastest endpoints
+    quantizations: ["bf16", "fp16", "fp32"]  # No heavy quantization
 
 parser:
   max_pages: 15  # Enough to capture abstract + intro + methods

@@ -64,6 +64,27 @@ class ZoteroConfig(BaseModel):
     )
 
 
+class ProviderRouting(BaseModel):
+    """OpenRouter provider routing configuration."""
+
+    order: list[str] | None = Field(
+        description="Provider order preference (e.g., ['google-vertex', 'groq'])",
+        default=None,
+    )
+    allow_fallbacks: bool = Field(
+        description="Allow fallback to other providers if preferred unavailable",
+        default=True,
+    )
+    sort: str | None = Field(
+        description="Sort providers by metric (e.g., 'throughput', 'price')",
+        default=None,
+    )
+    quantizations: list[str] | None = Field(
+        description="Allowed quantization levels (e.g., ['bf16', 'fp16', 'fp32'])",
+        default=None,
+    )
+
+
 class LLMConfig(BaseModel):
     """LLM provider configuration."""
 
@@ -76,6 +97,15 @@ class LLMConfig(BaseModel):
         default=0.3,
         ge=0.0,
         le=2.0,
+    )
+    max_retries: int = Field(
+        description="Maximum retry attempts for failed API calls",
+        default=3,
+        ge=1,
+    )
+    routing: ProviderRouting | None = Field(
+        description="OpenRouter provider routing settings",
+        default=None,
     )
 
 
