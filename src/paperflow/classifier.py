@@ -400,7 +400,7 @@ Respond in JSON:
         Returns:
             Cleaned JSON string.
         """
-        # Try to extract from markdown code fences first
+        # Try to extract from markdown code fences first (handle leading garbage like ".")
         json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", response, re.DOTALL)
         if json_match:
             json_str = json_match.group(1)
@@ -412,6 +412,13 @@ Respond in JSON:
         json_str = json_str.strip()
 
         # Fix common LLM JSON issues:
+
+        # 0. Handle double opening braces: "{\n{" or "{ {" -> "{"
+        # This happens when LLM wraps JSON in extra braces
+        json_str = re.sub(r"^\{\s*\{", "{", json_str)
+        # Also handle double closing braces at the end
+        json_str = re.sub(r"\}\s*\}$", "}", json_str)
+
         # 1. Remove trailing commas before } or ]
         json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
 

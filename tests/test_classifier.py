@@ -223,6 +223,23 @@ Hope this helps!"""
         assert result.summary == "A paper about neural networks."
 
     @pytest.mark.asyncio
+    async def test_json_with_double_braces(
+        self, classifier: Classifier, sample_paper: ParsedPaper
+    ) -> None:
+        """Test handling of double opening braces in JSON response."""
+        # This is a real issue seen in production - LLM returns { followed by another {
+        mock_response = """{
+{"summary": "A paper about transformers.", "key_points": ["Attention is all you need"], "methods": "Self-attention", "paper_type": "empirical"}"""
+
+        with patch.object(
+            classifier, "_call_llm_once", new_callable=AsyncMock
+        ) as mock_call:
+            mock_call.return_value = mock_response
+            result = await classifier.summarize(sample_paper)
+
+        assert result.summary == "A paper about transformers."
+
+    @pytest.mark.asyncio
     async def test_invalid_collection_in_response(
         self, classifier: Classifier
     ) -> None:
