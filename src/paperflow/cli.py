@@ -1,6 +1,7 @@
 """CLI for paperflow."""
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Annotated
 
@@ -15,8 +16,7 @@ from paperflow.models import Classification, PaperSummary, ProcessingResult, Pro
 from paperflow.parser import PDFParseError, PDFParser
 from paperflow.zotero import ZoteroClient, ZoteroError
 
-# Initialize logging on module load
-setup_logging()
+# Logger will be configured when commands run
 logger = get_logger("cli")
 
 app = typer.Typer(
@@ -66,8 +66,14 @@ def process(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Preview without changes")
     ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable debug logging to console")
+    ] = False,
 ) -> None:
     """Process papers in the inbox."""
+    # Initialize logging
+    setup_logging(verbose=verbose)
+
     config_path = get_config_path(config)
 
     try:
@@ -237,8 +243,14 @@ def status(
     config: Annotated[
         Path | None, typer.Option("--config", "-c", help="Path to config file")
     ] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable debug logging to console")
+    ] = False,
 ) -> None:
     """Show processing status."""
+    # Initialize logging
+    setup_logging(verbose=verbose)
+
     config_path = get_config_path(config)
 
     # Check daemon status
