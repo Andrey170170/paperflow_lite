@@ -1,0 +1,20 @@
+services:
+  paperflow:
+    build: .
+    container_name: paperflow
+    env_file: .env
+    environment:
+      # Polling interval in seconds (default: 300 = 5 minutes)
+      PAPERFLOW_INTERVAL: 300
+    volumes:
+      # Configuration (read-only)
+      - ./config.yaml:/app/config.yaml:ro
+      # LLM prompts (read-only)
+      - ./prompts:/app/prompts:ro
+      # Logs - accessible from host for monitoring
+      - ./.logs:/app/.logs
+      # PDF parse cache - persists between restarts
+      - ./.cache:/app/.cache
+    restart: unless-stopped
+    # Graceful shutdown timeout
+    stop_grace_period: 10s

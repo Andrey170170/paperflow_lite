@@ -276,6 +276,53 @@ def status(
         console.print(f"\n[yellow]Could not fetch inbox status: {e}[/yellow]")
 
 
+@app.command("start")
+def start(
+    config: Annotated[
+        Path | None, typer.Option("--config", "-c", help="Path to config file")
+    ] = None,
+    interval: Annotated[
+        int, typer.Option("--interval", "-i", help="Polling interval in seconds")
+    ] = 300,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable debug logging to console")
+    ] = False,
+) -> None:
+    """Start the daemon (blocking).
+
+    Runs continuously, polling Zotero for new papers every INTERVAL seconds.
+    Default interval is 300 seconds (5 minutes).
+    """
+    from paperflow.daemon import Daemon, DaemonError
+
+    # Initialize logging
+    setup_logging(verbose=verbose)
+
+    config_path = get_config_path(config)
+
+    try:
+        cfg = load_config(config_path)
+    except FileNotFoundError:
+        console.print(f"[red]Error: Config file not found: {config_path}[/red]")
+        raise typer.Exit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error loading config: {e}[/red]")
+        raise typer.Exit(1) from None
+
+    console.print(f"[green]Starting daemon with {interval}s polling interval...[/green]")
+    logger.info(f"Starting daemon with interval={interval}s")
+
+    daemon = Daemon(cfg, interval=interval)
+
+    try:
+        asyncio.run(daemon.run())
+    except DaemonError as e:
+        console.print(f"[red]Daemon error: {e}[/red]")
+        raise typer.Exit(1) from None
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Daemon stopped by user[/yellow]")
+
+
 def _format_summary_note(summary: PaperSummary, classification: Classification) -> str:
     """Format summary and classification as HTML note."""
     key_points_html = "\n".join(f"<li>{p}</li>" for p in summary.key_points)

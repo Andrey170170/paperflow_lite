@@ -1,0 +1,46 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.uv/
+
+# Test files
+tests/
+.pytest_cache/
+
+# Cache and logs (mounted at runtime)
+.cache/
+.logs/
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+.claude/
+
+# Secrets (passed via env_file)
+.env
+
+# Config (mounted at runtime)
+config.yaml
+
+# Docs (keep README.md for pyproject.toml)
+*.md
+!README.md
+!prompts/*.md
+
+# Build artifacts
+dist/
+*.egg-info/
+
+# OS
+.DS_Store
+
+# PID file
+.paperflow.pid
