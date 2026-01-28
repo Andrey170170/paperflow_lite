@@ -1,12 +1,11 @@
-"""PDF parsing with docling."""
+"""PDF parsing with pymupdf."""
 
 import hashlib
 import json
 import re
-import tempfile
 from pathlib import Path
 
-from docling.document_converter import DocumentConverter
+import pymupdf
 
 from paperflow.config import ParserConfig
 from paperflow.models import ParsedPaper
@@ -19,7 +18,7 @@ class PDFParseError(Exception):
 
 
 class PDFParser:
-    """Parser for extracting text from PDF files using docling."""
+    """Parser for extracting text from PDF files using pymupdf."""
 
     def __init__(self, config: ParserConfig) -> None:
         """Initialize the parser.
@@ -54,9 +53,9 @@ class PDFParser:
             if cached is not None:
                 return cached
 
-        # Parse with docling
+        # Parse with pymupdf
         try:
-            result = self._parse_with_docling(pdf_bytes)
+            result = self._parse_pdf(pdf_bytes)
         except Exception as e:
             raise PDFParseError(f"Failed to parse PDF: {e}") from e
 
@@ -66,8 +65,8 @@ class PDFParser:
 
         return result
 
-    def _parse_with_docling(self, pdf_bytes: bytes) -> ParsedPaper:
-        """Use docling to convert PDF to text.
+    def _parse_pdf(self, pdf_bytes: bytes) -> ParsedPaper:
+        """Use pymupdf to extract text from PDF.
 
         Args:
             pdf_bytes: Raw PDF content.
@@ -75,71 +74,99 @@ class PDFParser:
         Returns:
             ParsedPaper with extracted content.
         """
-        # Write bytes to temp file for docling
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(pdf_bytes)
-            tmp_path = Path(tmp.name)
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
 
         try:
-            converter = DocumentConverter()
-            result = converter.convert(tmp_path)
+            total_pages = len(doc)
+            pages_to_parse = min(total_pages, self.config.max_pages)
+            truncated = total_pages > self.config.max_pages
 
-            # Export to markdown format
-            markdown_text = result.document.export_to_markdown()
+            # Extract text from each page
+            text_parts = []
+            for page_num in range(pages_to_parse):
+                page = doc[page_num]
+                text = page.get_text()
+                if text.strip():
+                    text_parts.append(text)
 
-            # Get page count from input document
-            page_count = result.input.page_count
+            full_text = "\n\n".join(text_parts)
 
-            # Check if truncated (page count exceeds max)
-            truncated = page_count > self.config.max_pages
-
-            # Extract title and abstract from markdown
-            title = self._extract_title(markdown_text)
-            abstract = self._extract_abstract(markdown_text)
+            # Try to extract title and abstract
+            title = self._extract_title(full_text)
+            abstract = self._extract_abstract(full_text)
 
             return ParsedPaper(
                 title=title,
                 abstract=abstract,
-                full_text=markdown_text,
-                page_count=page_count,
+                full_text=full_text,
+                page_count=total_pages,
                 truncated=truncated,
             )
         finally:
-            # Clean up temp file
-            tmp_path.unlink(missing_ok=True)
+            doc.close()
 
-    def _extract_title(self, markdown: str) -> str | None:
-        """Extract paper title from markdown.
+    def _extract_title(self, text: str) -> str | None:
+        """Extract paper title from text.
 
-        Looks for first level-1 heading.
+        Assumes title is in the first few lines, typically the longest
+        line or a line before "Abstract".
 
         Args:
-            markdown: Markdown content.
+            text: Full text content.
 
         Returns:
             Title string or None if not found.
         """
-        match = re.search(r"^#\s+(.+)$", markdown, re.MULTILINE)
-        if match:
-            return match.group(1).strip()
+        lines = text.strip().split("\n")[:20]  # Check first 20 lines
+
+        # Look for a substantial line before "Abstract"
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if not line:
+                continue
+            # If we hit abstract, the previous non-empty line might be title
+            if re.match(r"^abstract\b", line, re.IGNORECASE):
+                # Look back for title
+                for j in range(i - 1, -1, -1):
+                    prev_line = lines[j].strip()
+                    if prev_line and len(prev_line) > 10:
+                        return prev_line
+                break
+
+        # Fallback: find longest line in first 10 lines (likely title)
+        candidates = [ln.strip() for ln in lines[:10] if ln.strip() and len(ln.strip()) > 15]
+        if candidates:
+            return max(candidates, key=len)
+
         return None
 
-    def _extract_abstract(self, markdown: str) -> str | None:
-        """Extract abstract from markdown.
+    def _extract_abstract(self, text: str) -> str | None:
+        """Extract abstract from text.
 
-        Looks for content under "Abstract" heading.
+        Looks for content after "Abstract" heading.
 
         Args:
-            markdown: Markdown content.
+            text: Full text content.
 
         Returns:
             Abstract text or None if not found.
         """
-        # Look for ## Abstract or # Abstract followed by content
-        pattern = r"#+\s*Abstract\s*\n\n(.+?)(?=\n#|\Z)"
-        match = re.search(pattern, markdown, re.IGNORECASE | re.DOTALL)
-        if match:
-            return match.group(1).strip()
+        # Pattern to match "Abstract" followed by content
+        patterns = [
+            r"(?:^|\n)\s*Abstract[:\s]*\n+(.*?)(?=\n\s*(?:1\.?\s*Introduction|Keywords|I\.\s|1\s+Introduction)|\Z)",
+            r"(?:^|\n)\s*ABSTRACT[:\s]*\n+(.*?)(?=\n\s*(?:1\.?\s*Introduction|Keywords|I\.\s|1\s+INTRODUCTION)|\Z)",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+            if match:
+                abstract = match.group(1).strip()
+                # Clean up: remove excessive whitespace
+                abstract = re.sub(r"\s+", " ", abstract)
+                # Limit length
+                if len(abstract) > 100:  # Reasonable abstract length
+                    return abstract[:2000] if len(abstract) > 2000 else abstract
+
         return None
 
     def _get_cached(self, cache_key: str) -> ParsedPaper | None:

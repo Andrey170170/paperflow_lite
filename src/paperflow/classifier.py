@@ -300,12 +300,46 @@ Respond in JSON:
         Raises:
             ClassifierError: If parsing fails.
         """
-        # Try to extract JSON from markdown code fences
-        json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", response, re.DOTALL)
-        json_str = json_match.group(1) if json_match else response
+        json_str = self._extract_json(response)
 
         try:
-            data = json.loads(json_str.strip())
+            data = json.loads(json_str)
             return model.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             raise ClassifierError(f"Failed to parse LLM response: {e}") from e
+
+    def _extract_json(self, response: str) -> str:
+        """Extract JSON from LLM response, handling common formatting issues.
+
+        Args:
+            response: Raw LLM response text.
+
+        Returns:
+            Cleaned JSON string.
+        """
+        # Try to extract from markdown code fences first
+        json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", response, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            # Try to find JSON object directly
+            brace_match = re.search(r"\{.*\}", response, re.DOTALL)
+            json_str = brace_match.group(0) if brace_match else response
+
+        json_str = json_str.strip()
+
+        # Fix common LLM JSON issues:
+        # 1. Remove trailing commas before } or ]
+        json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+
+        # 2. Fix unquoted keys (key: value -> "key": value)
+        json_str = re.sub(r"(\{|,)\s*(\w+)\s*:", r'\1"\2":', json_str)
+
+        # 3. Replace single quotes with double quotes (careful with apostrophes)
+        # Only replace if it looks like a string delimiter
+        json_str = re.sub(r":\s*'([^']*)'", r': "\1"', json_str)
+        json_str = re.sub(r"\[\s*'([^']*)'", r'["\1"', json_str)
+        json_str = re.sub(r"',\s*'", '", "', json_str)
+        json_str = re.sub(r"'\s*\]", '"]', json_str)
+
+        return json_str

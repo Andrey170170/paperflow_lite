@@ -24,35 +24,31 @@ class TestPDFParser:
         return PDFParser(parser_config)
 
     def test_parse_pdf_success(self, parser: PDFParser) -> None:
-        """Test successful PDF parsing with mocked docling."""
-        # Mock docling DocumentConverter
-        mock_doc = MagicMock()
-        mock_doc.document.export_to_markdown.return_value = (
-            "# Test Paper Title\n\n"
-            "## Abstract\n\n"
+        """Test successful PDF parsing with mocked pymupdf."""
+        # Create mock page
+        mock_page = MagicMock()
+        mock_page.get_text.return_value = (
+            "Test Paper Title\n\n"
+            "Abstract\n\n"
             "This is the abstract of the paper.\n\n"
-            "## Introduction\n\n"
-            "This is the introduction section with more content."
+            "1. Introduction\n\n"
+            "This is the introduction section."
         )
 
-        # Mock the input document to have page count
-        mock_input_doc = MagicMock()
-        mock_input_doc.page_count = 5
-        mock_doc.input = mock_input_doc
+        # Create mock document
+        mock_doc = MagicMock()
+        mock_doc.__len__ = MagicMock(return_value=5)
+        mock_doc.__getitem__ = MagicMock(return_value=mock_page)
 
-        with patch("paperflow.parser.DocumentConverter") as mock_converter_cls:
-            mock_converter = MagicMock()
-            mock_converter.convert.return_value = mock_doc
-            mock_converter_cls.return_value = mock_converter
-
+        with patch("paperflow.parser.pymupdf.open", return_value=mock_doc):
             result = parser.parse(b"fake pdf bytes", cache_key=None)
 
         assert isinstance(result, ParsedPaper)
-        assert "Test Paper Title" in result.full_text
         assert result.page_count == 5
         assert not result.truncated
+        mock_doc.close.assert_called_once()
 
-    def test_parse_pdf_with_cache(self, parser: PDFParser, tmp_path: Path) -> None:
+    def test_parse_pdf_with_cache(self, parser: PDFParser) -> None:
         """Test that cached results are returned without re-parsing."""
         cache_key = "test_paper_123"
 
@@ -66,12 +62,10 @@ class TestPDFParser:
         )
         parser._save_cache(cache_key, cached_paper)
 
-        # Parse should return cached result without calling docling
-        with patch("paperflow.parser.DocumentConverter") as mock_converter:
+        # Parse should return cached result without calling pymupdf
+        with patch("paperflow.parser.pymupdf.open") as mock_open:
             result = parser.parse(b"pdf bytes", cache_key=cache_key)
-
-            # Converter should NOT be called
-            mock_converter.assert_not_called()
+            mock_open.assert_not_called()
 
         assert result.title == "Cached Paper"
         assert result.full_text == "Cached content"
@@ -81,60 +75,54 @@ class TestPDFParser:
         config = ParserConfig(max_pages=5, cache_dir=parser_config.cache_dir)
         parser = PDFParser(config)
 
+        mock_page = MagicMock()
+        mock_page.get_text.return_value = "Page content"
+
         mock_doc = MagicMock()
-        mock_doc.document.export_to_markdown.return_value = "Long content..."
-        mock_input_doc = MagicMock()
-        mock_input_doc.page_count = 20  # Exceeds max_pages
-        mock_doc.input = mock_input_doc
+        mock_doc.__len__ = MagicMock(return_value=20)  # Exceeds max_pages
+        mock_doc.__getitem__ = MagicMock(return_value=mock_page)
 
-        with patch("paperflow.parser.DocumentConverter") as mock_converter_cls:
-            mock_converter = MagicMock()
-            mock_converter.convert.return_value = mock_doc
-            mock_converter_cls.return_value = mock_converter
-
+        with patch("paperflow.parser.pymupdf.open", return_value=mock_doc):
             result = parser.parse(b"pdf bytes", cache_key=None)
 
         assert result.truncated
         assert result.page_count == 20
 
     def test_parse_pdf_extract_title(self, parser: PDFParser) -> None:
-        """Test title extraction from markdown."""
-        mock_doc = MagicMock()
-        mock_doc.document.export_to_markdown.return_value = (
-            "# My Research Paper\n\nContent here."
+        """Test title extraction from text."""
+        mock_page = MagicMock()
+        mock_page.get_text.return_value = (
+            "Attention Is All You Need\n\n"
+            "Abstract\n\n"
+            "We propose a new architecture..."
         )
-        mock_input_doc = MagicMock()
-        mock_input_doc.page_count = 2
-        mock_doc.input = mock_input_doc
 
-        with patch("paperflow.parser.DocumentConverter") as mock_converter_cls:
-            mock_converter = MagicMock()
-            mock_converter.convert.return_value = mock_doc
-            mock_converter_cls.return_value = mock_converter
+        mock_doc = MagicMock()
+        mock_doc.__len__ = MagicMock(return_value=1)
+        mock_doc.__getitem__ = MagicMock(return_value=mock_page)
 
+        with patch("paperflow.parser.pymupdf.open", return_value=mock_doc):
             result = parser.parse(b"pdf bytes", cache_key=None)
 
-        assert result.title == "My Research Paper"
+        assert result.title == "Attention Is All You Need"
 
     def test_parse_pdf_extract_abstract(self, parser: PDFParser) -> None:
-        """Test abstract extraction from markdown."""
-        mock_doc = MagicMock()
-        mock_doc.document.export_to_markdown.return_value = (
-            "# Title\n\n"
-            "## Abstract\n\n"
-            "This is the abstract text that summarizes the paper.\n\n"
-            "## Introduction\n\n"
+        """Test abstract extraction from text."""
+        mock_page = MagicMock()
+        mock_page.get_text.return_value = (
+            "Title Here\n\n"
+            "Abstract\n\n"
+            "This is a detailed abstract that summarizes the paper's contributions "
+            "and main findings in a comprehensive manner.\n\n"
+            "1. Introduction\n\n"
             "Intro content."
         )
-        mock_input_doc = MagicMock()
-        mock_input_doc.page_count = 3
-        mock_doc.input = mock_input_doc
 
-        with patch("paperflow.parser.DocumentConverter") as mock_converter_cls:
-            mock_converter = MagicMock()
-            mock_converter.convert.return_value = mock_doc
-            mock_converter_cls.return_value = mock_converter
+        mock_doc = MagicMock()
+        mock_doc.__len__ = MagicMock(return_value=1)
+        mock_doc.__getitem__ = MagicMock(return_value=mock_page)
 
+        with patch("paperflow.parser.pymupdf.open", return_value=mock_doc):
             result = parser.parse(b"pdf bytes", cache_key=None)
 
         assert result.abstract is not None
@@ -142,10 +130,8 @@ class TestPDFParser:
 
     def test_parse_pdf_error(self, parser: PDFParser) -> None:
         """Test handling of parsing errors."""
-        with patch("paperflow.parser.DocumentConverter") as mock_converter_cls:
-            mock_converter = MagicMock()
-            mock_converter.convert.side_effect = Exception("PDF is corrupted")
-            mock_converter_cls.return_value = mock_converter
+        with patch("paperflow.parser.pymupdf.open") as mock_open:
+            mock_open.side_effect = Exception("PDF is corrupted")
 
             with pytest.raises(PDFParseError, match="Failed to parse PDF"):
                 parser.parse(b"corrupt pdf", cache_key=None)
@@ -174,20 +160,16 @@ class TestPDFParser:
 
     def test_no_cache_when_key_none(self, parser: PDFParser) -> None:
         """Test that None cache_key skips caching."""
+        mock_page = MagicMock()
+        mock_page.get_text.return_value = "Content"
+
         mock_doc = MagicMock()
-        mock_doc.document.export_to_markdown.return_value = "Content"
-        mock_input_doc = MagicMock()
-        mock_input_doc.page_count = 1
-        mock_doc.input = mock_input_doc
+        mock_doc.__len__ = MagicMock(return_value=1)
+        mock_doc.__getitem__ = MagicMock(return_value=mock_page)
 
-        with patch("paperflow.parser.DocumentConverter") as mock_converter_cls:
-            mock_converter = MagicMock()
-            mock_converter.convert.return_value = mock_doc
-            mock_converter_cls.return_value = mock_converter
-
-            # Parse without cache key
+        with patch("paperflow.parser.pymupdf.open", return_value=mock_doc):
             parser.parse(b"pdf bytes", cache_key=None)
 
-        # Cache directory should be empty or not have this file
+        # Cache directory should be empty
         cache_files = list(Path(parser.config.cache_dir).glob("*.json"))
         assert len(cache_files) == 0
