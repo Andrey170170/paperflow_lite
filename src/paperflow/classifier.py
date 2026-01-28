@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -10,11 +9,12 @@ from typing import Any
 import httpx
 
 from paperflow.config import CollectionDef, LLMConfig, TagDef
+from paperflow.logging_config import get_logger
 from paperflow.models import Classification, PaperSummary, ParsedPaper
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-logger = logging.getLogger(__name__)
+logger = get_logger("classifier")
 
 
 class ClassifierError(Exception):
@@ -331,6 +331,12 @@ Respond in JSON:
         if provider_config:
             payload["provider"] = provider_config
 
+        # Log request (without API key)
+        log_payload = {**payload, "messages": [{"role": "user", "content": f"<prompt length={len(prompt)}>"}]}
+        logger.info(f"LLM request: model={self.llm_config.model}")
+        logger.debug(f"LLM request payload: {json.dumps(log_payload, indent=2)}")
+        logger.debug(f"LLM request prompt:\n{prompt[:2000]}{'...' if len(prompt) > 2000 else ''}")
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -341,8 +347,23 @@ Respond in JSON:
                 )
                 response.raise_for_status()
                 data = response.json()
-                return data["choices"][0]["message"]["content"]
+
+                # Log response
+                content = data["choices"][0]["message"]["content"]
+                usage = data.get("usage", {})
+                logger.info(
+                    f"LLM response: status=200, "
+                    f"prompt_tokens={usage.get('prompt_tokens', 'N/A')}, "
+                    f"completion_tokens={usage.get('completion_tokens', 'N/A')}"
+                )
+                logger.debug(f"LLM response content:\n{content}")
+
+                return content
+        except httpx.HTTPStatusError as e:
+            logger.error(f"LLM API HTTP error: {e.response.status_code} - {e.response.text}")
+            raise ClassifierError(f"LLM API call failed: {e}") from e
         except Exception as e:
+            logger.error(f"LLM API error: {e}")
             raise ClassifierError(f"LLM API call failed: {e}") from e
 
     def _parse_response(

@@ -13,6 +13,9 @@ venv/
 .cache/
 .pytest_cache/
 
+# Logs
+.logs/
+
 # IDE
 .vscode/
 .idea/

@@ -3,9 +3,13 @@
 from pyzotero import zotero
 
 from paperflow.config import ZoteroConfig
+from paperflow.logging_config import get_logger
 from paperflow.models import ZoteroItem
 
 PROCESSED_TAG = "_paperflow_processed"
+SKIPPED_TAG = "_paperflow_skipped"
+
+logger = get_logger("zotero")
 
 
 class ZoteroError(Exception):
@@ -43,9 +47,12 @@ class ZoteroClient:
         Raises:
             ZoteroError: If inbox collection not found.
         """
+        logger.info(f"Fetching inbox items (collection: {self.config.inbox_collection})")
+
         if self.config.inbox_collection:
             collection_key = self._find_collection_key(self.config.inbox_collection)
             if collection_key is None:
+                logger.error(f"Collection '{self.config.inbox_collection}' not found")
                 raise ZoteroError(
                     f"Collection '{self.config.inbox_collection}' not found"
                 )
@@ -60,6 +67,7 @@ class ZoteroClient:
             if item.get("data", {}).get("itemType") not in ("attachment", "note")
         ]
 
+        logger.info(f"Found {len(top_level_items)} items in inbox")
         return [self._parse_item(item) for item in top_level_items]
 
     def get_item_pdf(self, attachment_key: str) -> bytes | None:
@@ -192,18 +200,40 @@ class ZoteroClient:
         Args:
             item_key: Key of the item.
         """
+        logger.info(f"Marking item {item_key} as processed")
         self.add_tags(item_key, [PROCESSED_TAG])
 
+    def mark_as_skipped(self, item_key: str, reason: str = "") -> None:
+        """Mark an item as skipped by adding a tag.
+
+        Args:
+            item_key: Key of the item.
+            reason: Optional reason for skipping.
+        """
+        logger.info(f"Marking item {item_key} as skipped: {reason}")
+        self.add_tags(item_key, [SKIPPED_TAG])
+
     def is_processed(self, item: ZoteroItem) -> bool:
-        """Check if an item has already been processed.
+        """Check if an item has already been processed or skipped.
 
         Args:
             item: ZoteroItem to check.
 
         Returns:
-            True if already processed.
+            True if already processed or skipped.
         """
-        return PROCESSED_TAG in item.tags
+        return PROCESSED_TAG in item.tags or SKIPPED_TAG in item.tags
+
+    def is_skipped(self, item: ZoteroItem) -> bool:
+        """Check if an item was skipped.
+
+        Args:
+            item: ZoteroItem to check.
+
+        Returns:
+            True if skipped.
+        """
+        return SKIPPED_TAG in item.tags
 
     def _find_collection_key(self, name: str) -> str | None:
         """Find collection key by name.

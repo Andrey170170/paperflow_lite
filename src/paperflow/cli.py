@@ -10,9 +10,14 @@ from rich.table import Table
 
 from paperflow.classifier import Classifier
 from paperflow.config import load_config
+from paperflow.logging_config import get_logger, setup_logging
 from paperflow.models import Classification, PaperSummary, ProcessingResult, ProcessingStatus
 from paperflow.parser import PDFParseError, PDFParser
 from paperflow.zotero import ZoteroClient, ZoteroError
+
+# Initialize logging on module load
+setup_logging()
+logger = get_logger("cli")
 
 app = typer.Typer(
     name="paperflow",
@@ -101,9 +106,11 @@ def process(
     items_to_process = [item for item in items if not zotero.is_processed(item)]
 
     if not items_to_process:
+        logger.info("No items to process")
         console.print("[green]No items to process.[/green]")
         return
 
+    logger.info(f"Found {len(items_to_process)} items to process (batch_size={cfg.processing.batch_size})")
     console.print(f"Found {len(items_to_process)} items to process")
 
     # Limit to batch size
@@ -112,6 +119,7 @@ def process(
 
     for item in batch:
         console.print(f"\nProcessing: [bold]{item.title}[/bold]")
+        logger.info(f"Processing item: {item.key} - {item.title}")
 
         # Skip items without PDF
         if not item.has_pdf or not item.pdf_attachment_key:
@@ -121,16 +129,23 @@ def process(
                 error="No PDF attachment",
             )
             results.append(result)
+            logger.info(f"Skipping item {item.key}: No PDF attachment")
             console.print("  [yellow]Skipped: No PDF attachment[/yellow]")
+            # Mark as skipped so it won't be processed again
+            if not cfg.processing.dry_run:
+                zotero.mark_as_skipped(item.key, "No PDF attachment")
             continue
 
         # Download and parse PDF
         try:
+            logger.debug(f"Downloading PDF for item {item.key}")
             pdf_bytes = zotero.get_item_pdf(item.pdf_attachment_key)
             if pdf_bytes is None:
                 raise PDFParseError("Could not download PDF")
 
+            logger.debug(f"Parsing PDF for item {item.key}")
             parsed = parser.parse(pdf_bytes, cache_key=item.key)
+            logger.info(f"Parsed {parsed.page_count} pages for item {item.key}")
             console.print(f"  Parsed {parsed.page_count} pages")
         except PDFParseError as e:
             result = ProcessingResult(
@@ -139,12 +154,20 @@ def process(
                 error=f"PDF parsing failed: {e}",
             )
             results.append(result)
+            logger.error(f"PDF parsing failed for item {item.key}: {e}")
             console.print(f"  [red]Failed: {e}[/red]")
             continue
 
         # Classify with LLM
         try:
+            logger.info(f"Classifying item {item.key}")
             summary, classification = asyncio.run(classifier.process(parsed))
+            logger.info(
+                f"Classification complete for {item.key}: "
+                f"collections={classification.collections}, "
+                f"tags={classification.tags}, "
+                f"confidence={classification.confidence:.0%}"
+            )
             console.print(f"  Summary: {summary.summary[:100]}...")
             console.print(f"  Collections: {', '.join(classification.collections)}")
             console.print(f"  Tags: {', '.join(classification.tags)}")
@@ -156,28 +179,35 @@ def process(
                 error=f"Classification failed: {e}",
             )
             results.append(result)
+            logger.error(f"Classification failed for item {item.key}: {e}")
             console.print(f"  [red]Classification failed: {e}[/red]")
             continue
 
         # Apply changes (unless dry run)
         if not cfg.processing.dry_run:
             try:
+                logger.info(f"Applying changes to item {item.key}")
+
                 # Add to collections (create if they don't exist)
                 for coll_name in classification.collections:
+                    logger.debug(f"Adding item {item.key} to collection '{coll_name}'")
                     coll_key = zotero.get_or_create_collection(coll_name)
                     zotero.add_to_collection(item.key, coll_key)
 
                 # Add tags
+                logger.debug(f"Adding tags to item {item.key}: {classification.tags}")
                 zotero.add_tags(item.key, classification.tags)
 
                 # Add summary note
                 if cfg.processing.add_summary_note:
+                    logger.debug(f"Adding summary note to item {item.key}")
                     note_html = _format_summary_note(summary, classification)
                     zotero.add_note(item.key, note_html)
 
                 # Mark as processed
                 zotero.mark_as_processed(item.key)
 
+                logger.info(f"Successfully updated item {item.key}")
                 console.print("  [green]Updated successfully[/green]")
             except Exception as e:
                 result = ProcessingResult(
@@ -186,6 +216,7 @@ def process(
                     error=f"Update failed: {e}",
                 )
                 results.append(result)
+                logger.error(f"Update failed for item {item.key}: {e}")
                 console.print(f"  [red]Update failed: {e}[/red]")
                 continue
 
