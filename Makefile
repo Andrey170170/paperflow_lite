@@ -1,7 +1,6 @@
 .PHONY: up down build logs status
 
-# Export UID/GID for docker-compose
-export UID := $(shell id -u)
+# Export GID for docker-compose (UID is already exported by bash)
 export GID := $(shell id -g)
 
 up: ## Start paperflow daemon in background

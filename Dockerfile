@@ -40,8 +40,10 @@ COPY --from=builder /app/prompts ./prompts
 # Set PATH to use the virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Create directories for mounted volumes
-RUN mkdir -p /app/.logs /app/.cache
+# Create directories for mounted volumes and make app writable
+# (needed for .paperflow.pid when running as non-root user)
+RUN mkdir -p /app/.logs /app/.cache && \
+    chmod -R 777 /app
 
 # Default interval: 300 seconds (5 minutes)
 ENV PAPERFLOW_INTERVAL=300
