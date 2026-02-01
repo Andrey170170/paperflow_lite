@@ -7,6 +7,11 @@ zotero:
   api_key: "${ZOTERO_API_KEY}"
   inbox_collection: "Inbox"  # Change to your inbox collection name, or null for all unsorted
 
+webdav:
+  url: "${WEBDAV_URL}"
+  username: "${WEBDAV_USERNAME}"
+  password: "${WEBDAV_PASSWORD}"
+
 llm:
   provider: "openrouter"
   api_key: "${OPENROUTER_API_KEY}"

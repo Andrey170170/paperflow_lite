@@ -1,10 +1,17 @@
 """Zotero API client for paperflow."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from pyzotero import zotero
 
 from paperflow.config import ZoteroConfig
 from paperflow.logging_config import get_logger
 from paperflow.models import ZoteroItem
+
+if TYPE_CHECKING:
+    from paperflow.webdav import WebDAVClient
 
 PROCESSED_TAG = "_paperflow_processed"
 SKIPPED_TAG = "_paperflow_skipped"
@@ -21,11 +28,16 @@ class ZoteroError(Exception):
 class ZoteroClient:
     """Client for interacting with Zotero API."""
 
-    def __init__(self, config: ZoteroConfig) -> None:
+    def __init__(
+        self,
+        config: ZoteroConfig,
+        webdav: WebDAVClient | None = None,
+    ) -> None:
         """Initialize the Zotero client.
 
         Args:
             config: Zotero configuration.
+            webdav: Optional WebDAV client for PDF downloads.
         """
         self.config = config
         self._client = zotero.Zotero(
@@ -33,6 +45,7 @@ class ZoteroClient:
             config.library_type,
             config.api_key,
         )
+        self._webdav = webdav
         self._collections_cache: dict[str, str] | None = None
 
     def get_inbox_items(self) -> list[ZoteroItem]:
@@ -73,12 +86,18 @@ class ZoteroClient:
     def get_item_pdf(self, attachment_key: str) -> bytes | None:
         """Download PDF content for an attachment.
 
+        Uses WebDAV if configured, otherwise falls back to Zotero API.
+
         Args:
             attachment_key: Key of the PDF attachment.
 
         Returns:
             PDF bytes or None if download fails.
         """
+        if self._webdav:
+            logger.debug(f"Downloading PDF via WebDAV: {attachment_key}")
+            return self._webdav.get_file(attachment_key)
+
         try:
             return self._client.file(attachment_key)
         except Exception:

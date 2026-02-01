@@ -10,6 +10,7 @@ from paperflow.classifier import Classifier
 from paperflow.config import AppConfig
 from paperflow.models import ProcessingResult, ProcessingStatus
 from paperflow.parser import PDFParseError, PDFParser
+from paperflow.webdav import WebDAVClient
 from paperflow.zotero import ZoteroClient
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,8 @@ class Daemon:
 
     def _init_components(self) -> None:
         """Initialize Zotero client, parser, and classifier."""
-        self._zotero = ZoteroClient(self.config.zotero)
+        webdav = WebDAVClient(self.config.webdav) if self.config.webdav else None
+        self._zotero = ZoteroClient(self.config.zotero, webdav=webdav)
         self._parser = PDFParser(self.config.parser)
         self._classifier = Classifier(
             self.config.llm,

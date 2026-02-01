@@ -14,6 +14,7 @@ from paperflow.config import load_config
 from paperflow.logging_config import get_logger, setup_logging
 from paperflow.models import Classification, PaperSummary, ProcessingResult, ProcessingStatus
 from paperflow.parser import PDFParseError, PDFParser
+from paperflow.webdav import WebDAVClient
 from paperflow.zotero import ZoteroClient, ZoteroError
 
 # Logger will be configured when commands run
@@ -94,7 +95,8 @@ def process(
 
     # Initialize components
     try:
-        zotero = ZoteroClient(cfg.zotero)
+        webdav = WebDAVClient(cfg.webdav) if cfg.webdav else None
+        zotero = ZoteroClient(cfg.zotero, webdav=webdav)
         parser = PDFParser(cfg.parser)
         classifier = Classifier(cfg.llm, cfg.collections, cfg.tags)
     except Exception as e:

@@ -8,6 +8,13 @@ zotero:
   api_key: "${ZOTERO_API_KEY}"        # Set ZOTERO_API_KEY env var
   inbox_collection: "Inbox"           # Collection to pull from (null = all unsorted)
 
+# Optional: WebDAV storage (if using WebDAV instead of Zotero's file sync)
+# Uncomment if you sync files via Nextcloud, ownCloud, or other WebDAV server
+# webdav:
+#   url: "${WEBDAV_URL}"              # e.g., https://nextcloud.example.com/remote.php/webdav/zotero
+#   username: "${WEBDAV_USERNAME}"
+#   password: "${WEBDAV_PASSWORD}"
+
 # LLM settings
 llm:
   provider: "openrouter"

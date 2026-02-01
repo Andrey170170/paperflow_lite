@@ -64,6 +64,18 @@ class ZoteroConfig(BaseModel):
     )
 
 
+class WebDAVConfig(BaseModel):
+    """WebDAV storage configuration for PDF downloads.
+
+    Use this when Zotero is configured to sync files via WebDAV
+    (e.g., Nextcloud) instead of Zotero's built-in storage.
+    """
+
+    url: str = Field(description="WebDAV base URL (from Zotero sync settings)")
+    username: str = Field(description="WebDAV username")
+    password: str = Field(description="WebDAV password")
+
+
 class ProviderRouting(BaseModel):
     """OpenRouter provider routing configuration."""
 
@@ -174,6 +186,10 @@ class AppConfig(BaseModel):
         description="Available collections for classification"
     )
     tags: list[TagDef] = Field(description="Available tags for classification")
+    webdav: WebDAVConfig | None = Field(
+        description="WebDAV storage config (if using WebDAV instead of Zotero storage)",
+        default=None,
+    )
 
 
 def load_config(path: Path) -> AppConfig:
